@@ -1,1 +1,16 @@
-/target
+# Rust build artifacts
+target/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment config
+.env
+
+# SQLite database
+*.db    
+*.db-journal
+*.db-wal
