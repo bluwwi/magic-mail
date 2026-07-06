@@ -7,6 +7,11 @@ mod smtp;
 use anyhow::Result;
 use db::Database;
 use models::{Address, Email};
+use notify::NotificationSender;
+use std::sync::Arc;
+use tracing::event;
+
+use crate::models::EmailEvent;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -14,44 +19,50 @@ async fn main() -> Result<()> {
     tracing::info!("Magic Backend v{} starting...", env!("CARGO_PKG_VERSION"));
 
     let database_url = "sqlite::memory:";
-    db::ensure_db_directory(database_url)?;
-    let db = Database::new(database_url).await?;
-
-    let healthy = db.health_check().await?;
-    tracing::info!("Database health check: {}", healthy);
-
-    let pool = db.pool();
+    let db = Arc::new(Database::new(database_url).await?);
+    let tx: NotificationSender = notify::setup_notification_channel();
 
     let address = Address::new("test@tmpml.net".to_string(), "tmpml.net".to_string(), 10);
-    db::queries::insert_address(pool, &address).await?;
-    tracing::info!("Inserted address: {}", address.address);
+    db::queries::insert_address(db.pool(), &address).await?;
 
     let email = Email::new(
         "test@tmpml.net".to_string(),
-        "sender@example.com".to_string(),
-        "Welcome to TempMail!".to_string(),
-        Some("This is a test email.".to_string()),
-        Some("<h1>Test</h1><p>This is HTML</p>".to_string()),
-        Some("raw email data".to_string()),
+        "alice@example.com".to_string(),
+        "Hello from blue!".to_string(),
+        Some("Plain text body".to_string()),
+        Some("<h1>Hello</h1><p>HTML body</p>".to_string()),
+        None,
     );
-    db::queries::insert_email(pool, &email).await?;
-    tracing::info!("Inserted email: {}", email.subject);
+    db::queries::insert_email(db.pool(), &email).await?;
 
-    let emails = db::queries::get_emails(pool, "test@tmpml.net").await?;
-    tracing::info!("Found {} email(s)", emails.len());
+    //test notification
+    let event = EmailEvent::from_email(&email);
+    notify::send_notification(&tx, &event);
+    tracing::info!("Sent notification for: {}", event.subject);
 
-    db::queries::mark_email_read(pool, &email.id).await?;
-    let found = db::queries::get_email(pool, &email.id).await?.unwrap();
-    tracing::info!("Email read status: {}", found.is_read);
+    let mut rx2 = tx.subscribe();
+    let mut rx3 = tx.subscribe();
 
-    let deleted = db::queries::delete_expired_emails(pool, 0).await?;
-    tracing::info!("Deleted {} expired email(s)", deleted);
+    let event2 = EmailEvent {
+        to_address: "test@tmpml.net".to_string(),
+        email_id: "second-email".to_string(),
+        subject: "Second email".to_string(),
+        from_addr: "bob@example.com".to_string(),
+    };
+
+    tx.send(event2.clone())?;
+
+    let from_rx2 = rx2.recv().await?;
+    let from_rx3 = rx3.recv().await?;
+    assert_eq!(from_rx2, event2);
+    assert_eq!(from_rx3, event2);
+    tracing::info!("Multiple subscriber test passed!");
 
     tracing::info!("");
-    tracing::info!("=== Phase 2 Complete ===");
-    tracing::info!("Database layer is fully functional");
+    tracing::info!("=== Complete ===");
+    tracing::info!("Notifications: broadcast channel — working");
 
-    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-    tracing::info!("Shutting down. Phase 2 complete!");
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+    tracing::info!("Shutting down.");
     Ok(())
 }

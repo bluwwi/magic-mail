@@ -15,7 +15,7 @@ pub fn setup_notification_channel() -> NotificationSender {
     tx
 }
 
-pub fn send_notifications_channel(tx: &NotificationSender, event: &EmailEvent) -> bool {
+pub fn send_notification(tx: &NotificationSender, event: &EmailEvent) -> bool {
     match tx.send(event.clone()) {
         Ok(receiver_count) => {
             tracing::debug!("Notification sent to {} receiver(s)", receiver_count);
