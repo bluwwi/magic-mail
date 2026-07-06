@@ -100,3 +100,42 @@ pub async fn delete_emails_for_address(
 
     Ok(result.rows_affected())
 }
+
+pub async fn mark_email_read(
+    pool: &SqlitePool,
+    email_id: &str,
+) -> Result<()> {
+    sqlx::query("UPDATE emails SET is_read = 1 WHERE id = ?")
+        .bind(email_id)
+        .execute(pool)
+        .await
+        .context("Failed to mark email as read")?;
+
+    Ok(())
+}
+
+pub async fn delete_expired_emails(
+    pool: &SqlitePool,
+    before: i64,
+) -> Result<u64> {
+    let result = sqlx::query("DELETE FROM emails WHERE received_at < ?")
+        .bind(before)
+        .execute(pool)
+        .await
+        .context("Failed to delete expired emails")?;
+
+    Ok(result.rows_affected())
+}
+
+pub async fn delete_expired_addresses(
+    pool: &SqlitePool,
+    now: i64,
+) -> Result<u64> {
+    let result = sqlx::query("DELETE FROM addresses WHERE expires_at < ?")
+        .bind(now)
+        .execute(pool)
+        .await
+        .context("Failed to delete expired addresses")?;
+
+    Ok(result.rows_affected())
+}
