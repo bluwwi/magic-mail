@@ -139,3 +139,30 @@ pub async fn delete_expired_addresses(
 
     Ok(result.rows_affected())
 }
+
+
+pub async fn get_email_count(
+    pool: &SqlitePool,
+    to_address: &str,
+) -> Result<i64> {
+    let (count,): (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM emails WHERE to_address = ?"
+    )
+    .bind(to_address)
+    .fetch_one(pool)
+    .await
+    .context("Failed to count emails")?;
+
+    Ok(count)
+}
+
+pub async fn checkpoint_wal(pool: &SqlitePool) -> Result<()> {
+    sqlx::query("PRAGMA wal_checkpoint(TRUNCATE);")
+        .execute(pool)
+        .await
+        .context("Failed to checkpoint WAL")?;
+
+    tracing::debug!("WAL checkpoint completed");
+    Ok(())
+}
+✅ Commit:
