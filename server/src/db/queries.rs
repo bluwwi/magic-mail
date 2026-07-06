@@ -73,3 +73,30 @@ pub async fn get_email(
 
     Ok(email)
 }
+
+pub async fn delete_email(
+    pool: &SqlitePool,
+    email_id: &str,
+) -> Result<bool> {
+    let result = sqlx::query("DELETE FROM emails WHERE id = ?")
+        .bind(email_id)
+        .execute(pool)
+        .await
+        .context("Failed to delete email")?;
+
+    Ok(result.rows_affected() > 0)
+}
+
+
+pub async fn delete_emails_for_address(
+    pool: &SqlitePool,
+    to_address: &str,
+) -> Result<u64> {
+    let result = sqlx::query("DELETE FROM emails WHERE to_address = ?")
+        .bind(to_address)
+        .execute(pool)
+        .await
+        .context("Failed to delete emails for address")?;
+
+    Ok(result.rows_affected())
+}
