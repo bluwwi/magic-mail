@@ -165,4 +165,3 @@ pub async fn checkpoint_wal(pool: &SqlitePool) -> Result<()> {
     tracing::debug!("WAL checkpoint completed");
     Ok(())
 }
-✅ Commit:
