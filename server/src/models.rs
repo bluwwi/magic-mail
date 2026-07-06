@@ -30,3 +30,50 @@ pub struct EmailEvent {
     pub subject: String,
     pub from_addr: String,
 }
+
+impl Email {
+    pub fn new(
+        to_address: String,
+        from_addr: String,
+        subject: String,
+        body_text: Option<String>,
+        body_html: Option<String>,
+        raw: Option<String>,
+    ) -> Self {
+        Self {
+            id: uuid::Uuid::new_v4().to_string(),
+            to_address,
+            from_addr,
+            subject,
+            body_text,
+            body_html,
+            raw,
+            received_at: chrono::Utc::now().timestamp(),
+            is_read: false,
+        }
+    }
+}
+
+impl Address {
+    pub fn new(address: String, domain: String, ttl_minutes: i64) -> Self {
+        let now = chrono::Utc::now().timestamp();
+        Self {
+            id: uuid::Uuid::new_v4().to_string(),
+            address,
+            domain,
+            created_at: now,
+            expires_at: now + (ttl_minutes * 60),
+        }
+    }
+}
+
+impl EmailEvent {
+    pub fn from_email(email: &Email) -> Self {
+        Self {
+            to_address: email.to_address.clone(),
+            email_id: email.id.clone(),
+            subject: email.subject.clone(),
+            from_addr: email.from_addr.clone(),
+        }
+    }
+}
