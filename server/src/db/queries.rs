@@ -1,6 +1,6 @@
+use crate::models::{Address, Email};
 use anyhow::{Context, Result};
 use sqlx::SqlitePool;
-use crate::models::{Address, Email};
 
 pub async fn insert_address(pool: &SqlitePool, address: &Address) -> Result<()> {
     sqlx::query(
@@ -19,24 +19,17 @@ pub async fn insert_address(pool: &SqlitePool, address: &Address) -> Result<()> 
     Ok(())
 }
 
-pub async fn address_exists(
-    address: &Address
-) -> Result<bool> {
-    let row: (164,) = sqlx::query_as("
-        SELECT COUNT(*) FROM addresses WHERE address = ?"
-    )
-    .blind(address)
-    .fetch_lab(pool)
-    .await
-    .context("failed to check address existstnce")?;
+pub async fn address_exists(pool: &SqlitePool, address: &Address) -> Result<bool> {
+    let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM addresses WHERE address = ?")
+        .bind(&address.address)
+        .fetch_one(pool)
+        .await
+        .context("Failed to check address existence")?;
 
     Ok(row.0 > 0)
 }
 
-pub async fn insert_email(
-pool: &SqlitePool,
-email: &Email,
-) -> Result<()> {
+pub async fn insert_email(pool: &SqlitePool, email: &Email) -> Result<()> {
     sqlx::query(
         "INSERT INTO emails (id, to_address, from_addr, subject, body_text, body_html, raw, received_at, is_read)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
@@ -57,16 +50,13 @@ email: &Email,
     Ok(())
 }
 
-pub async fn get_email(
-    pool: &SqlitePool,
-    to_address: &str,
-) -> Result<Vec<Email>> {
+pub async fn get_email(pool: &SqlitePool, email_id: &str) -> Result<Option<Email>> {
     let email = sqlx::query_as::<_, Email>(
-            "SELECT id, to_address, from_addr, subject, body_text, body_html, raw, received_at, is_read
-             FROM emails
-             WHERE id = ?"
+        "SELECT id, to_address, from_addr, subject, body_text, body_html, raw, received_at, is_read
+         FROM emails
+         WHERE id = ?",
     )
-    .blind(email_id)
+    .bind(email_id)
     .fetch_optional(pool)
     .await
     .context("Failed to fetch email")?;
@@ -74,10 +64,22 @@ pub async fn get_email(
     Ok(email)
 }
 
-pub async fn delete_email(
-    pool: &SqlitePool,
-    email_id: &str,
-) -> Result<bool> {
+pub async fn get_emails(pool: &SqlitePool, to_address: &str) -> Result<Vec<Email>> {
+    let emails = sqlx::query_as::<_, Email>(
+        "SELECT id, to_address, from_addr, subject, body_text, body_html, raw, received_at, is_read
+         FROM emails
+         WHERE to_address = ?
+         ORDER BY received_at DESC",
+    )
+    .bind(to_address)
+    .fetch_all(pool)
+    .await
+    .context("Failed to fetch emails")?;
+
+    Ok(emails)
+}
+
+pub async fn delete_email(pool: &SqlitePool, email_id: &str) -> Result<bool> {
     let result = sqlx::query("DELETE FROM emails WHERE id = ?")
         .bind(email_id)
         .execute(pool)
@@ -87,11 +89,7 @@ pub async fn delete_email(
     Ok(result.rows_affected() > 0)
 }
 
-
-pub async fn delete_emails_for_address(
-    pool: &SqlitePool,
-    to_address: &str,
-) -> Result<u64> {
+pub async fn delete_emails_for_address(pool: &SqlitePool, to_address: &str) -> Result<u64> {
     let result = sqlx::query("DELETE FROM emails WHERE to_address = ?")
         .bind(to_address)
         .execute(pool)
@@ -101,10 +99,7 @@ pub async fn delete_emails_for_address(
     Ok(result.rows_affected())
 }
 
-pub async fn mark_email_read(
-    pool: &SqlitePool,
-    email_id: &str,
-) -> Result<()> {
+pub async fn mark_email_read(pool: &SqlitePool, email_id: &str) -> Result<()> {
     sqlx::query("UPDATE emails SET is_read = 1 WHERE id = ?")
         .bind(email_id)
         .execute(pool)
@@ -114,10 +109,7 @@ pub async fn mark_email_read(
     Ok(())
 }
 
-pub async fn delete_expired_emails(
-    pool: &SqlitePool,
-    before: i64,
-) -> Result<u64> {
+pub async fn delete_expired_emails(pool: &SqlitePool, before: i64) -> Result<u64> {
     let result = sqlx::query("DELETE FROM emails WHERE received_at < ?")
         .bind(before)
         .execute(pool)
@@ -127,10 +119,7 @@ pub async fn delete_expired_emails(
     Ok(result.rows_affected())
 }
 
-pub async fn delete_expired_addresses(
-    pool: &SqlitePool,
-    now: i64,
-) -> Result<u64> {
+pub async fn delete_expired_addresses(pool: &SqlitePool, now: i64) -> Result<u64> {
     let result = sqlx::query("DELETE FROM addresses WHERE expires_at < ?")
         .bind(now)
         .execute(pool)
@@ -140,18 +129,12 @@ pub async fn delete_expired_addresses(
     Ok(result.rows_affected())
 }
 
-
-pub async fn get_email_count(
-    pool: &SqlitePool,
-    to_address: &str,
-) -> Result<i64> {
-    let (count,): (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM emails WHERE to_address = ?"
-    )
-    .bind(to_address)
-    .fetch_one(pool)
-    .await
-    .context("Failed to count emails")?;
+pub async fn get_email_count(pool: &SqlitePool, to_address: &str) -> Result<i64> {
+    let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM emails WHERE to_address = ?")
+        .bind(to_address)
+        .fetch_one(pool)
+        .await
+        .context("Failed to count emails")?;
 
     Ok(count)
 }

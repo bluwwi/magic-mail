@@ -1,10 +1,8 @@
-pub struct Database {}
+pub mod queries;
+
 use anyhow::{Context, Result};
-use sqlx::sqlite::SqlitePoolOptions;
-use sqlx::{database, SqlitePool};
+use sqlx::SqlitePool;
 use std::path::Path;
-use std::result;
-use tracing_subscriber::fmt::format;
 
 pub struct Database {
     pool: SqlitePool,
@@ -42,6 +40,7 @@ impl Database {
 
     pub async fn health_check(&self) -> Result<bool> {
         let result: (i64,) = sqlx::query_as("SELECT 1")
+            .fetch_one(&self.pool)
             .await
             .context("Database Heaath check failed")?;
         Ok(result.0 == 1)
@@ -58,7 +57,7 @@ pub fn ensure_db_directory(database_url: &str) -> Result<()> {
     if let Some(parent) = path.parent() {
         if !parent.exists() {
             std::fs::create_dir_all(parent)
-                .with_context(|| format!("Failed to create directory: {:?", parent))?;
+                .with_context(|| format!("Failed to create directory: {:?}", parent))?;
         }
     }
     Ok(())
