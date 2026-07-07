@@ -4,6 +4,7 @@ pub mod sse;
 
 use crate::db::Database;
 use crate::notify::NotificationSender;
+use axum::extract::State;
 use axum::Json;
 use axum::Router;
 use std::sync::Arc;
