@@ -1,5 +1,5 @@
-use crate::api::AppState;
 use crate::models::Email;
+use crate::{api::AppState, db};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -39,4 +39,32 @@ pub async fn get_email(
 
     let _ = db::queries::mark_email_read(state.db.pool(), &email.id).await;
     Ok(Json(email))
+}
+
+pub async fn delete_email(
+    State(state): State<Arc<AppState>>,
+    Path((_address, id)): Path<(String, String)>,
+) -> Result<Json<DeleteResponse>, (StatusCode, String)> {
+    let deleted = db::queries::delete_email(state.db.pool(), &id)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    if deleted {
+        Ok(Json(DeleteResponse { deleted: true }))
+    } else {
+        Err((StatusCode::NOT_FOUND, format!("Email '{}' not found", id)))
+    }
+}
+
+pub async fn clear_emails(
+    State(state): State<Arc<AppState>>,
+    Path(address): Path<String>,
+) -> Result<Json<ClearResponse>, (StatusCode, String)> {
+    let count = db::queries::delete_emails_for_address(state.db.pool(), &address)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    Ok(Json(ClearResponse {
+        deleted_count: count,
+    }))
 }
