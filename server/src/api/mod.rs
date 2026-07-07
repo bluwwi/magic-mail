@@ -12,6 +12,8 @@ use tower_http::cors;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 
+pub const HTTP_PORT: u16 = 3001;
+
 pub struct AppState {
     pub db: Arc<Database>,
     pub tx: NotificationSender,
@@ -76,4 +78,18 @@ pub fn create_router(
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         .with_state(state)
+}
+
+pub async fn start_http_server(
+    db: Arc<crate::db::Database>,
+    tx: crate::notify::NotificationSender,
+    allowed_domains: Vec<String>,
+) -> anyhow::Result<()> {
+    let app = create_router(db, tx, allowed_domains);
+    let addr = format!("0.0.0.0:{}", HTTP_PORT);
+    tracing::info!("HTTP server listening on {}", addr);
+
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
+    axum::serve(listener, app).await?;
+    Ok(())
 }
