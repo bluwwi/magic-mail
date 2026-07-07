@@ -18,6 +18,7 @@ pub struct ClearResponse {
     pub deleted_count: u64,
 }
 
+//list emails
 pub async fn list_emails(
     State(state): State<Arc<AppState>>,
     Path(address): Path<String>,
