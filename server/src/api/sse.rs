@@ -1,14 +1,15 @@
 use crate::api::AppState;
+use crate::db;
 use crate::models::EmailEvent;
 use axum::{
     extract::State,
     response::sse::{Event, KeepAlive, Sse},
 };
 use futures::stream::Stream;
+use futures::StreamExt;
 use std::convert::Infallible;
 use std::sync::Arc;
 use tokio_stream::wrappers::BroadcastStream;
-use tokio_stream::StreamExt;
 
 pub async fn sse_handler(
     State(state): State<Arc<AppState>>,

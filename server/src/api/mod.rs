@@ -8,7 +8,6 @@ use axum::extract::State;
 use axum::Json;
 use axum::Router;
 use std::sync::Arc;
-use tower_http::cors;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 
@@ -25,7 +24,7 @@ pub async fn health_handler(
     State(state): axum::extract::State<Arc<AppState>>,
 ) -> Json<serde_json::Value> {
     let healthy = state.db.health_check().await.unwrap_or(false);
-    let uptime = (chrono::Utc::now() - state.started_at).num_seconds();
+    let uptime = chrono::Utc::now().timestamp() - state.started_at.timestamp();
 
     Json(serde_json::json!({
         "status": if healthy { "ok" } else { "degraded" },
