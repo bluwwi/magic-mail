@@ -1,4 +1,4 @@
-use crate::models::{Email, EmailEvent};
+use crate::models::EmailEvent;
 use tokio::sync::broadcast;
 
 const CHANNEL_CAPACITY: usize = 128;
@@ -18,7 +18,7 @@ pub fn setup_notification_channel() -> NotificationSender {
 pub fn send_notification(tx: &NotificationSender, event: &EmailEvent) -> bool {
     match tx.send(event.clone()) {
         Ok(receiver_count) => {
-            tracing::debug!("Notification sent to {} receiver(s)", receiver_count);
+            tracing::debug!("Notification sent to {} receiver(s)", receiver_count); 
             receiver_count > 0
         }
         Err(broadcast::error::SendError(_)) => {
