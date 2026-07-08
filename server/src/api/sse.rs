@@ -81,6 +81,12 @@ pub async fn sse_handler(
     let live = start_polling(&state.tx, &address);
 
     let stream = futures::stream::iter(initial).chain(live);
+    let addr_for_log = address.clone();
+    let stream = stream.inspect(move |_result| {
+        // Stream is alive — no log noise per event
+    });
+
+    tracing::debug!("SSE connected: {}", addr_for_log);
 
     Sse::new(stream).keep_alive(
         KeepAlive::new()
