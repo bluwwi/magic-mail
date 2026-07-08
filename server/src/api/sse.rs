@@ -53,8 +53,9 @@ pub async fn sse_handler(
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     let address = normalize_address(&address);
 
-    // Step 1: Send existing emails after last_event_id (or all)
-    let existing = db::queries::get_emails(state.db.pool(), &address)
+    let pool = state.db.pool().clone();
+
+    let existing = db::queries::get_emails(&pool, &address)
         .await
         .unwrap_or_default();
 
@@ -77,7 +78,6 @@ pub async fn sse_handler(
             )
         });
 
-    // Step 2: Subscribe to live broadcast
     let live = start_polling(&state.tx, &address);
 
     let stream = futures::stream::iter(initial).chain(live);
