@@ -9,37 +9,76 @@ use futures::stream::Stream;
 use futures::StreamExt;
 use std::convert::Infallible;
 use std::sync::Arc;
+use tokio::sync::broadcast;
 use tokio_stream::wrappers::BroadcastStream;
 
-pub async fn sse_handler(
-    State(state): State<Arc<AppState>>,
-    axum::extract::Path(address): axum::extract::Path<String>,
-) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    let existing = db::queries::get_emails(state.db.pool(), &address)
-        .await
-        .unwrap_or_default();
+#[derive(Deserialize, Debug)]
+pub struct SseQuery {
+    pub last_event_id: Option<i64>,
+}
 
-    let initial = existing.into_iter().map(|email| {
-        let event = EmailEvent::from_email(&email);
-        let data = serde_json::to_string(&event).unwrap_or_default();
-        Ok::<_, Infallible>(Event::default().event("new_email").data(data))
-    });
+fn normalize_address(addr: &str) -> String {
+    addr.trim().to_lowercase()
+}
 
-    let rx = state.tx.subscribe();
-    let live = BroadcastStream::new(rx).filter_map(move |result| {
-        let addr = address.clone();
+fn start_polling(
+    tx: &broadcast::Sender<EmailEvent>,
+    address: &str,
+) -> impl Stream<Item = Result<Event, Infallible>> {
+    let rx = tx.subscribe();
+    let addr = address.to_string();
+    BroadcastStream::new(rx).filter_map(move |result| {
+        let addr = addr.clone();
         async move {
             match result {
                 Ok(event) if event.to_address == addr => {
                     let data = serde_json::to_string(&event).unwrap_or_default();
                     Some(Ok::<_, Infallible>(
-                        Event::default().event("new_email").data(data),
+                        Event::default()
+                            .event("new_email")
+                            .data(data)
+                            .id(event.email_id.clone()),
                     ))
                 }
                 _ => None,
             }
         }
-    });
+    })
+}
+
+pub async fn sse_handler(
+    State(state): State<Arc<AppState>>,
+    Path(address): Path<String>,
+    Query(query): Query<SseQuery>,
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+    let address = normalize_address(&address);
+
+    // Step 1: Send existing emails after last_event_id (or all)
+    let existing = db::queries::get_emails(state.db.pool(), &address)
+        .await
+        .unwrap_or_default();
+
+    let initial = existing
+        .into_iter()
+        .filter(|e| {
+            query
+                .last_event_id
+                .map(|id| e.created_at > id)
+                .unwrap_or(true)
+        })
+        .map(|email| {
+            let event = EmailEvent::from_email(&email);
+            let data = serde_json::to_string(&event).unwrap_or_default();
+            Ok::<_, Infallible>(
+                Event::default()
+                    .event("new_email")
+                    .data(data)
+                    .id(email.id.clone()),
+            )
+        });
+
+    // Step 2: Subscribe to live broadcast
+    let live = start_polling(&state.tx, &address);
 
     let stream = futures::stream::iter(initial).chain(live);
 
