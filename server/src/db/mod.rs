@@ -38,6 +38,10 @@ impl Database {
         &self.pool
     }
 
+    pub async fn close(&self) {
+        self.pool.close().await;
+    }
+
     pub async fn health_check(&self) -> Result<bool> {
         let result: (i64,) = sqlx::query_as("SELECT 1")
             .fetch_one(&self.pool)

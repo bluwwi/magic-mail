@@ -1,12 +1,11 @@
 use crate::api::AppState;
 use crate::db;
 use crate::models::EmailEvent;
-use axum::{
-    extract::State,
-    response::sse::{Event, KeepAlive, Sse},
-};
+use axum::extract::{Path, Query, State};
+use axum::response::sse::{Event, KeepAlive, Sse};
 use futures::stream::Stream;
 use futures::StreamExt;
+use serde::Deserialize;
 use std::convert::Infallible;
 use std::sync::Arc;
 use tokio::sync::broadcast;
@@ -45,7 +44,6 @@ fn start_polling(
         }
     })
 }
-
 pub async fn sse_handler(
     State(state): State<Arc<AppState>>,
     Path(address): Path<String>,
@@ -61,10 +59,10 @@ pub async fn sse_handler(
 
     let initial = existing
         .into_iter()
-        .filter(|e| {
+        .filter(move |e| {
             query
                 .last_event_id
-                .map(|id| e.created_at > id)
+                .map(|id| e.received_at > id)
                 .unwrap_or(true)
         })
         .map(|email| {
@@ -82,9 +80,7 @@ pub async fn sse_handler(
 
     let stream = futures::stream::iter(initial).chain(live);
     let addr_for_log = address.clone();
-    let stream = stream.inspect(move |_result| {
-        // Stream is alive — no log noise per event
-    });
+    let stream = stream.inspect(move |_result| {});
 
     tracing::debug!("SSE connected: {}", addr_for_log);
 

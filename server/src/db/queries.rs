@@ -139,6 +139,35 @@ pub async fn get_email_count(pool: &SqlitePool, to_address: &str) -> Result<i64>
     Ok(count)
 }
 
+pub async fn cleanup_expired(pool: &SqlitePool, batch_size: u64) -> Result<u64> {
+    let batch = batch_size as i64;
+    let now = chrono::Utc::now().timestamp();
+
+    let deleted_emails = sqlx::query(
+        "DELETE FROM emails WHERE id IN (
+            SELECT e.id FROM emails e
+            LEFT JOIN addresses a ON e.to_address = a.address
+            WHERE a.id IS NULL OR a.expires_at < ?
+            LIMIT ?
+        )",
+    )
+    .bind(now)
+    .bind(batch)
+    .execute(pool)
+    .await
+    .context("Failed to clean up expired emails")?
+    .rows_affected();
+
+    let deleted_addresses = sqlx::query("DELETE FROM addresses WHERE expires_at < ?")
+        .bind(now)
+        .execute(pool)
+        .await
+        .context("Failed to clean up expired addresses")?
+        .rows_affected();
+
+    Ok(deleted_emails + deleted_addresses)
+}
+
 pub async fn checkpoint_wal(pool: &SqlitePool) -> Result<()> {
     sqlx::query("PRAGMA wal_checkpoint(TRUNCATE);")
         .execute(pool)
