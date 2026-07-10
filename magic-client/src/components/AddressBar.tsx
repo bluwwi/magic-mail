@@ -15,6 +15,7 @@ export default function AddressBar({ initialAddress = null, onAddressChange }: A
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+
   useEffect(() => {
     api.getDomains().then(setDomains).catch(console.error);
   }, []);
@@ -90,46 +91,68 @@ export default function AddressBar({ initialAddress = null, onAddressChange }: A
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+    <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-5">
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-        {domains.length > 1 ? (
-          <select
-            value={selectedDomain}
-            onChange={(e) => setSelectedDomain(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Random domain</option>
-            {domains.map((d) => (
-              <option key={d} value={d}>
-                @{d}
-              </option>
-            ))}
-          </select>
-        ) : domains.length === 1 ? (
-          <span className="text-sm text-gray-500">@{domains[0]}</span>
-        ) : null}
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          {domains.length > 1 && (
+            <select
+              value={selectedDomain}
+              onChange={(e) => setSelectedDomain(e.target.value)}
+              className="bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border)] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent appearance-none cursor-pointer"
+            >
+              <option value="">Random domain</option>
+              {domains.map((d) => (
+                <option key={d} value={d}>
+                  @{d}
+                </option>
+              ))}
+            </select>
+          )}
+          {domains.length === 1 && (
+            <span className="text-sm text-[var(--text-secondary)]">@{domains[0]}</span>
+          )}
+        </div>
 
         <button
           onClick={handleGenerate}
           disabled={loading}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          className="px-4 py-2.5 bg-[var(--accent)] text-white rounded-lg text-sm font-medium hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-[0.97] whitespace-nowrap"
         >
-          {loading ? "Generating..." : "Generate New Address"}
+          {loading ? (
+            <span className="flex items-center gap-2">
+              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              Generating...
+            </span>
+          ) : (
+            "Generate New"
+          )}
         </button>
 
         {address && (
-          <div className="flex items-center gap-3 ml-auto">
-            <span className="text-sm font-mono text-gray-700">{address.address}</span>
-            <button
-              onClick={handleCopy}
-              className="px-3 py-1.5 text-xs border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-            >
-              {copied ? "Copied!" : "Copy"}
-            </button>
+          <div className="flex items-center gap-3 sm:ml-auto w-full sm:w-auto">
+            <div className="flex-1 sm:flex-none bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-3 py-2 flex items-center gap-2 min-w-0">
+              <span className="text-sm font-mono text-[var(--text-primary)] truncate">
+                {address.address}
+              </span>
+              <button
+                onClick={handleCopy}
+                className={`flex-shrink-0 px-2 py-0.5 text-xs font-medium rounded-md transition-all duration-200 ${
+                  copied
+                    ? "bg-[var(--success-bg)] text-[var(--success)]"
+                    : "bg-[var(--accent-glow)] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-white"
+                }`}
+              >
+                {copied ? "Copied!" : "Copy"}
+              </button>
+            </div>
             {timeLeft !== null && (
               <span
-                className={`text-xs font-mono ${
-                  timeLeft < 60 ? "text-red-500" : "text-gray-500"
+                className={`text-xs font-mono flex-shrink-0 ${
+                  timeLeft === 0
+                    ? "text-[var(--danger)]"
+                    : timeLeft < 60
+                    ? "text-[var(--warning)]"
+                    : "text-[var(--text-muted)]"
                 }`}
               >
                 {timeLeft === 0 ? "EXPIRED" : formatTime(timeLeft)}

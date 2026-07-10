@@ -21,17 +21,25 @@ export default function InboxList({
 }: InboxListProps) {
   if (loading && emails.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12 text-gray-500">
-        Loading...
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-8 flex items-center justify-center">
+        <div className="flex items-center gap-2 text-[var(--text-muted)] text-sm">
+          <span className="w-4 h-4 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+          Loading...
+        </div>
       </div>
     );
   }
 
   if (emails.length === 0) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-500 mb-2">No emails yet</p>
-        <p className="text-sm text-gray-400">
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-12 text-center">
+        <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center">
+          <svg className="w-6 h-6 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <p className="text-[var(--text-secondary)] text-sm font-medium">No emails yet</p>
+        <p className="text-[var(--text-muted)] text-xs mt-1.5">
           Emails sent to your temporary address will appear here in real-time.
         </p>
       </div>
@@ -39,42 +47,46 @@ export default function InboxList({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-gray-50 rounded-t-lg">
-        <span className="text-sm text-gray-600">
-          {emails.length} {emails.length === 1 ? "email" : "emails"}
+    <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-[var(--border)] bg-[var(--bg-secondary)]">
+        <span className="text-sm text-[var(--text-secondary)]">
+          {emails.length} {emails.length === 1 ? "message" : "messages"}
         </span>
         <button
           onClick={onClear}
-          className="text-sm text-red-600 hover:text-red-800 transition-colors"
+          className="text-xs text-[var(--text-muted)] hover:text-[var(--danger)] transition-colors duration-200"
         >
           Clear all
         </button>
       </div>
 
-      <ul className="divide-y divide-gray-200">
+      <div className="divide-y divide-[var(--border)] max-h-[480px] overflow-y-auto scrollbar-thin">
         {emails.map((email) => (
-          <li
+          <div
             key={email.id}
             onClick={() => onSelect(email)}
-            className={`px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors animate-slide-in ${
-              selectedId === email.id ? "bg-blue-50" : ""
+            className={`px-4 py-3 cursor-pointer transition-all duration-200 ${
+              selectedId === email.id
+                ? "bg-[var(--accent-glow)] border-l-2 border-l-[var(--accent)]"
+                : "hover:bg-[var(--bg-card-hover)] border-l-2 border-l-transparent"
             }`}
           >
-            <div className="flex items-start justify-between">
-              <div className="flex-1 min-w-0 mr-4">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   {!email.is_read && (
-                    <span className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0" />
+                    <span className="w-2 h-2 rounded-full bg-[var(--accent)] flex-shrink-0 animate-pulse" />
                   )}
-                  <p className="text-sm font-medium text-gray-900 truncate">
+                  <p className={`text-sm truncate ${
+                    email.is_read ? "text-[var(--text-secondary)]" : "text-[var(--text-primary)] font-medium"
+                  }`}>
                     {email.subject || "(No subject)"}
                   </p>
                 </div>
-                <p className="text-sm text-gray-500 truncate mt-0.5">
+                <p className="text-xs text-[var(--text-muted)] truncate mt-0.5 ml-4">
                   {email.from_address}
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-[11px] text-[var(--text-muted)] mt-1 ml-4">
                   {new Date(email.created_at * 1000).toLocaleString()}
                 </p>
               </div>
@@ -83,7 +95,7 @@ export default function InboxList({
                   e.stopPropagation();
                   onDelete(email.id);
                 }}
-                className="text-gray-400 hover:text-red-600 transition-colors flex-shrink-0"
+                className="flex-shrink-0 p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--danger)] hover:bg-[var(--danger-bg)] transition-all duration-200 opacity-0 group-hover:opacity-100"
                 title="Delete"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -91,9 +103,9 @@ export default function InboxList({
                 </svg>
               </button>
             </div>
-          </li>
+          </div>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }
