@@ -15,8 +15,6 @@ export default function AddressBar({ initialAddress = null, onAddressChange }: A
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const autoGenDone = useCallback(() => {}, []);
-
   useEffect(() => {
     api.getDomains().then(setDomains).catch(console.error);
   }, []);

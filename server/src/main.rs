@@ -19,7 +19,7 @@ async fn main() -> Result<()> {
     let database_url = "sqlite:tempmail.db?mode=rwc";
     let db = Arc::new(Database::new(database_url).await?);
     let tx: NotificationSender = notify::setup_notification_channel();
-    let allowed_domains = vec!["realblue.lol".to_string(), "blu3.in".to_string()];
+    let allowed_domains = vec!["realblue.lol".to_string()];
 
     banner::print_startup_banner(api::HTTP_PORT, smtp::SMTP_PORT, &allowed_domains);
 
