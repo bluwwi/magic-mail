@@ -1,0 +1,13 @@
+{
+  "name": "magic-mail",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Temporary email service — Rust backend + Next.js frontend",
+  "scripts": {
+    "dev:backend": "cd server && cargo run",
+    "dev:frontend": "cd magic-client && npm run dev",
+    "build:backend": "cd server && cargo build --release",
+    "build:frontend": "cd magic-client && npm run build",
+    "dev": "echo 'Run terminals separately: npm run dev:backend and npm run dev:frontend'"
+  }
+}
