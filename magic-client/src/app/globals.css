@@ -36,14 +36,21 @@ body {
 }
 
 @font-face {
-    font-family: "arial_narrow_7";
-    src: url("/fonts/arial_narrow_7.ttf") format("truetype");
+    font-family: "reckless";
+    src: url("/fonts/reckless.otf") format("opentype");
     font-style: normal;
 }
-.arr {
-    font-family: "OffBit-arial_narrow_7", sans-serif;
+@font-face {
+    font-family: "Akzidenz-grotesk-roman";
+    src: url("/fonts/Akzidenz-grotesk-roman.ttf") format("truetype");
 }
 
+.arr {
+    font-family: "Akzidenz-grotesk-roman", sans-serif;
+}
+.rek {
+    font-family: "reckless", sans-serif;
+}
 @keyframes slideIn {
     from {
         opacity: 0;

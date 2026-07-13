@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "TempMail — Temporary Email Service",
+  title: "Magic Mail — Disposable Temporary Email",
   description:
     "Generate temporary email addresses and receive emails in real-time.",
 };
