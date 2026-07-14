@@ -19,7 +19,12 @@ async fn main() -> Result<()> {
     let database_url = "sqlite:tempmail.db?mode=rwc";
     let db = Arc::new(Database::new(database_url).await?);
     let tx: NotificationSender = notify::setup_notification_channel();
-    let allowed_domains = vec!["realblue.lol".to_string()];
+    let allowed_domains: Vec<String> = std::env::var("ALLOWED_DOMAINS")
+        .unwrap_or_else(|_| "temp.realblue.lol,odin.online,od3n.info".to_string())
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
 
     banner::print_startup_banner(api::HTTP_PORT, smtp::SMTP_PORT, &allowed_domains);
 
