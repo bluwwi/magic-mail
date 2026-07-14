@@ -20,11 +20,15 @@ async fn main() -> Result<()> {
     let db = Arc::new(Database::new(database_url).await?);
     let tx: NotificationSender = notify::setup_notification_channel();
     let allowed_domains: Vec<String> = std::env::var("ALLOWED_DOMAINS")
-        .unwrap_or_else(|_| "temp.realblue.lol,odin.online,od3n.info".to_string())
+        .expect("ALLOWED_DOMAINS env var must be set (comma-separated, e.g. temp.realblue.lol,od3n.online,od3n.info)")
         .split(',')
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
         .collect();
+
+    if allowed_domains.is_empty() {
+        panic!("ALLOWED_DOMAINS env var is set but empty");
+    }
 
     banner::print_startup_banner(api::HTTP_PORT, smtp::SMTP_PORT, &allowed_domains);
 
