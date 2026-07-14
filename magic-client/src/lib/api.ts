@@ -10,13 +10,12 @@ export interface Address {
 
 export interface Email {
   id: string;
-  address_id: string;
-  from_address: string;
   to_address: string;
+  from_addr: string;
   subject: string;
-  body_text: string;
+  body_text: string | null;
   body_html: string | null;
-  created_at: number;
+  received_at: number;
   is_read: boolean;
 }
 

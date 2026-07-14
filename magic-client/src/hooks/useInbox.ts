@@ -23,16 +23,6 @@ export function useInbox(address: api.Address | null): UseInboxResult {
   const eventSourceRef = useRef<EventSource | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const addEmail = useCallback((email: api.Email) => {
-    setEmails((prev) => {
-      const exists = prev.some((e) => e.id === email.id);
-      if (exists) return prev;
-      const updated = [...prev, email];
-      updated.sort((a, b) => b.created_at - a.created_at);
-      return updated;
-    });
-  }, []);
-
   const cleanup = useCallback(() => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
@@ -50,7 +40,7 @@ export function useInbox(address: api.Address | null): UseInboxResult {
     setError(null);
     try {
       const list = await api.listEmails(address.address);
-      list.sort((a, b) => b.created_at - a.created_at);
+      list.sort((a, b) => b.received_at - a.received_at);
       setEmails(list);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch emails");
@@ -79,13 +69,8 @@ export function useInbox(address: api.Address | null): UseInboxResult {
         setError(null);
       });
 
-      es.addEventListener("new_email", (event) => {
-        try {
-          const emailData = JSON.parse(event.data);
-          addEmail(emailData);
-        } catch {
-          // Ignore parse errors
-        }
+      es.addEventListener("new_email", () => {
+        fetchEmails();
       });
 
       es.addEventListener("error", () => {
@@ -102,7 +87,7 @@ export function useInbox(address: api.Address | null): UseInboxResult {
         if (!address) return;
         try {
           const list = await api.listEmails(address.address);
-          list.sort((a, b) => b.created_at - a.created_at);
+          list.sort((a, b) => b.received_at - a.received_at);
           setEmails(list);
           setError(null);
         } catch {
@@ -112,7 +97,7 @@ export function useInbox(address: api.Address | null): UseInboxResult {
     }
 
     return cleanup;
-  }, [address, fetchEmails, addEmail, cleanup]);
+  }, [address, fetchEmails, cleanup]);
 
   const selectEmail = useCallback((email: api.Email) => {
     setEmails((prev) =>
