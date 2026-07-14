@@ -10,7 +10,7 @@ use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 
-pub const SMTP_PORT: u16 = 25;
+pub const SMTP_PORT: u16 = 2525;
 const IDLE_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_EMAIL_SIZE: usize = 1_048_576;
 
