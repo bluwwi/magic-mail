@@ -7,7 +7,7 @@ import { useInbox } from "@/hooks/useInbox";
 import InboxList from "@/components/InboxList";
 import EmailViewer from "@/components/EmailViewer";
 
-const STORAGE_KEY = "temp_mail_address";
+const STORAGE_KEY = "test@test.com";
 
 export default function Page() {
   const [currentAddress, setCurrentAddress] = useState<api.Address | null>(null);
