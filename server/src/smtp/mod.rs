@@ -10,7 +10,7 @@ use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 
-pub const SMTP_PORT: u16 = 2525;
+pub const SMTP_PORT_DEFAULT: u16 = 2525;
 const IDLE_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_EMAIL_SIZE: usize = 1_048_576;
 
@@ -34,10 +34,16 @@ struct ConnectionHandler {
     db: Arc<Database>,
     tx: NotificationSender,
     allowed_domains: Vec<String>,
+    hostname: String,
 }
 
 impl ConnectionHandler {
-    fn new(db: Arc<Database>, tx: NotificationSender, allowed_domains: Vec<String>) -> Self {
+    fn new(
+        db: Arc<Database>,
+        tx: NotificationSender,
+        allowed_domains: Vec<String>,
+        hostname: String,
+    ) -> Self {
         Self {
             state: SmtpState::WaitingGreeting,
             sender: None,
@@ -45,6 +51,7 @@ impl ConnectionHandler {
             db,
             tx,
             allowed_domains,
+            hostname,
         }
     }
 
@@ -79,7 +86,7 @@ impl ConnectionHandler {
     fn handle_ehlo(&mut self, line: &str) -> String {
         if line.to_uppercase().starts_with("EHLO") || line.to_uppercase().starts_with("HELO") {
             self.state = SmtpState::WaitingMailFrom;
-            "250 tmpml.net Hello\r\n".to_string()
+            format!("250 {} Hello\r\n", self.hostname)
         } else {
             "500 Expected EHLO/HELO\r\n".to_string()
         }
@@ -163,26 +170,35 @@ impl ConnectionHandler {
     }
 
     fn process_email(&mut self, raw_data: Vec<u8>) -> anyhow::Result<()> {
-        let email = parser::parse_email(
+        let parsed = parser::parse_email(
             &raw_data,
             self.sender.as_deref().unwrap_or("unknown"),
             &self.recipients,
         )?;
+        let email = parsed.email;
+        let attachments = parsed.attachments;
 
         let pool = self.db.pool();
+        let email_id = email.id.clone();
         tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current()
-                .block_on(async { db::queries::insert_email(pool, &email).await })
+            tokio::runtime::Handle::current().block_on(async {
+                db::queries::insert_email(pool, &email).await?;
+                for att in &attachments {
+                    db::queries::insert_attachment(pool, &email_id, att).await?;
+                }
+                Result::<(), anyhow::Error>::Ok(())
+            })
         })?;
 
         let event = EmailEvent::from_email(&email);
         notify::send_notification(&self.tx, &event);
 
         tracing::info!(
-            "Email stored: {} -> {} subject='{}'",
+            "Email stored: {} -> {} subject='{}' attachments={}",
             email.from_addr,
             email.to_address,
             email.subject,
+            attachments.len(),
         );
 
         Ok(())
@@ -222,8 +238,10 @@ pub async fn start_smtp_server(
     db: Arc<Database>,
     tx: NotificationSender,
     allowed_domains: Vec<String>,
+    port: u16,
+    hostname: String,
 ) -> anyhow::Result<()> {
-    let addr = format!("0.0.0.0:{}", SMTP_PORT);
+    let addr = format!("0.0.0.0:{}", port);
     let listener = TcpListener::bind(&addr).await?;
     tracing::info!("SMTP server listening on {}", addr);
 
@@ -232,9 +250,10 @@ pub async fn start_smtp_server(
         let db = db.clone();
         let tx = tx.clone();
         let domains = allowed_domains.clone();
+        let hostname = hostname.clone();
 
         tokio::spawn(async move {
-            if let Err(e) = handle_connection(stream, db, tx, domains).await {
+            if let Err(e) = handle_connection(stream, db, tx, domains, hostname).await {
                 tracing::error!("SMTP error: {:?}", e);
             }
         });
@@ -246,13 +265,14 @@ async fn handle_connection(
     db: Arc<Database>,
     tx: NotificationSender,
     allowed_domains: Vec<String>,
+    hostname: String,
 ) -> anyhow::Result<()> {
     let (reader, mut writer) = stream.into_split();
     let mut reader = BufReader::new(reader);
-    let mut handler = ConnectionHandler::new(db, tx, allowed_domains);
+    let mut handler = ConnectionHandler::new(db, tx, allowed_domains, hostname.clone());
 
     writer
-        .write_all(b"220 tmpml.net ESMTP TempMail Ready\r\n")
+        .write_all(format!("220 {} ESMTP TempMail Ready\r\n", hostname).as_bytes())
         .await?;
 
     let mut line = String::new();
