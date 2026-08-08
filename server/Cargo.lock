@@ -941,6 +941,7 @@ dependencies = [
  "anyhow",
  "axum",
  "chrono",
+ "dotenvy",
  "futures",
  "mailparse",
  "rand",

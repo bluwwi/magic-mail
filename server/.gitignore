@@ -9,6 +9,7 @@ target/
 
 # Environment config
 .env
+!.env.example
 
 # SQLite database
 *.db    

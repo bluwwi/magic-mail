@@ -32,6 +32,7 @@ fn parse_env_i64(key: &str, default: i64) -> i64 {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let _ = dotenvy::dotenv();
     tracing_subscriber::fmt::init();
 
     let database_url = env_or("sqlite:tempmail.db?mode=rwc", "DATABASE_URL");
