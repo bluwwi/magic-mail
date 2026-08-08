@@ -1,4 +1,4 @@
-use crate::models::{Address, Email};
+use crate::models::{Address, Email, Attachment};
 use anyhow::{Context, Result};
 use sqlx::SqlitePool;
 
@@ -143,6 +143,21 @@ pub async fn cleanup_expired(pool: &SqlitePool, batch_size: u64) -> Result<u64> 
     let batch = batch_size as i64;
     let now = chrono::Utc::now().timestamp();
 
+    let orphaned_attachments = sqlx::query(
+        "DELETE FROM attachments WHERE email_id IN (
+            SELECT e.id FROM emails e
+            LEFT JOIN addresses a ON e.to_address = a.address
+            WHERE a.id IS NULL OR a.expires_at < ?
+            LIMIT ?
+        )",
+    )
+    .bind(now)
+    .bind(batch)
+    .execute(pool)
+    .await
+    .context("Failed to clean up orphaned attachments")?
+    .rows_affected();
+
     let deleted_emails = sqlx::query(
         "DELETE FROM emails WHERE id IN (
             SELECT e.id FROM emails e
@@ -165,7 +180,52 @@ pub async fn cleanup_expired(pool: &SqlitePool, batch_size: u64) -> Result<u64> 
         .context("Failed to clean up expired addresses")?
         .rows_affected();
 
-    Ok(deleted_emails + deleted_addresses)
+    Ok(orphaned_attachments + deleted_emails + deleted_addresses)
+}
+
+pub async fn insert_attachment(pool: &SqlitePool, email_id: &str, att: &Attachment) -> Result<()> {
+    sqlx::query(
+        "INSERT INTO attachments (id, email_id, cid, content_type, filename, data, inline)
+         VALUES (?, ?, ?, ?, ?, ?, ?)",
+    )
+    .bind(&att.id)
+    .bind(email_id)
+    .bind(&att.cid)
+    .bind(&att.content_type)
+    .bind(&att.filename)
+    .bind(&att.data)
+    .bind(att.inline)
+    .execute(pool)
+    .await
+    .context("Failed to insert attachment")?;
+    Ok(())
+}
+
+pub async fn get_attachment_by_cid(
+    pool: &SqlitePool,
+    email_id: &str,
+    cid: &str,
+) -> Result<Option<Attachment>> {
+    let row = sqlx::query_as::<_, Attachment>(
+        "SELECT id, email_id, cid, content_type, filename, data, inline
+         FROM attachments
+         WHERE email_id = ? AND cid = ?",
+    )
+    .bind(email_id)
+    .bind(cid)
+    .fetch_optional(pool)
+    .await
+    .context("Failed to fetch attachment")?;
+    Ok(row)
+}
+
+pub async fn delete_attachments_for_email(pool: &SqlitePool, email_id: &str) -> Result<u64> {
+    let result = sqlx::query("DELETE FROM attachments WHERE email_id = ?")
+        .bind(email_id)
+        .execute(pool)
+        .await
+        .context("Failed to delete attachments")?;
+    Ok(result.rows_affected())
 }
 
 pub async fn checkpoint_wal(pool: &SqlitePool) -> Result<()> {
