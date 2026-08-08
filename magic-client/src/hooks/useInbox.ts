@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import * as api from "@/lib/api";
 
+const POLL_INTERVAL_MS = 5000;
+const POLL_MAX_INTERVAL_MS = 30000;
+
 interface UseInboxResult {
   emails: api.Email[];
   selectedEmail: api.Email | null;
@@ -12,7 +15,6 @@ interface UseInboxResult {
   deselectEmail: () => void;
   deleteEmail: (id: string) => Promise<void>;
   clearEmails: () => Promise<void>;
-  refresh: () => Promise<void>;
 }
 
 export function useInbox(address: api.Address | null): UseInboxResult {
@@ -21,7 +23,8 @@ export function useInbox(address: api.Address | null): UseInboxResult {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const backoffRef = useRef<number>(POLL_INTERVAL_MS);
 
   const cleanup = useCallback(() => {
     if (eventSourceRef.current) {
@@ -29,9 +32,10 @@ export function useInbox(address: api.Address | null): UseInboxResult {
       eventSourceRef.current = null;
     }
     if (pollingRef.current) {
-      clearInterval(pollingRef.current);
+      clearTimeout(pollingRef.current);
       pollingRef.current = null;
     }
+    backoffRef.current = POLL_INTERVAL_MS;
   }, []);
 
   const fetchEmails = useCallback(async () => {
@@ -83,17 +87,23 @@ export function useInbox(address: api.Address | null): UseInboxResult {
     }
 
     function startPolling() {
-      pollingRef.current = setInterval(async () => {
+      const tick = async () => {
         if (!address) return;
         try {
           const list = await api.listEmails(address.address);
           list.sort((a, b) => b.received_at - a.received_at);
           setEmails(list);
           setError(null);
+          backoffRef.current = POLL_INTERVAL_MS;
         } catch {
-          // Silent — retry on next interval
+          backoffRef.current = Math.min(
+            backoffRef.current * 2,
+            POLL_MAX_INTERVAL_MS,
+          );
         }
-      }, 3000);
+        pollingRef.current = setTimeout(tick, backoffRef.current);
+      };
+      pollingRef.current = setTimeout(tick, backoffRef.current);
     }
 
     return cleanup;
@@ -101,7 +111,7 @@ export function useInbox(address: api.Address | null): UseInboxResult {
 
   const selectEmail = useCallback((email: api.Email) => {
     setEmails((prev) =>
-      prev.map((e) => (e.id === email.id ? { ...e, is_read: true } : e))
+      prev.map((e) => (e.id === email.id ? { ...e, is_read: true } : e)),
     );
     setSelectedEmail(email);
   }, []);
@@ -132,10 +142,6 @@ export function useInbox(address: api.Address | null): UseInboxResult {
     }
   }, [address]);
 
-  const refresh = useCallback(async () => {
-    await fetchEmails();
-  }, [fetchEmails]);
-
   return {
     emails,
     selectedEmail,
@@ -145,6 +151,5 @@ export function useInbox(address: api.Address | null): UseInboxResult {
     deselectEmail,
     deleteEmail,
     clearEmails,
-    refresh,
   };
 }
