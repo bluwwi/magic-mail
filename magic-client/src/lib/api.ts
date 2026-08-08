@@ -1,4 +1,7 @@
-const BASE = "";
+// In production on Vercel, set NEXT_PUBLIC_API_URL to your Render backend's HTTPS URL
+// (e.g. https://magic-mail.onrender.com). When unset (local dev), requests stay
+// same-origin and are proxied to the backend via next.config.ts rewrites.
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 export interface Address {
   id: string;
@@ -19,26 +22,6 @@ export interface Email {
   is_read: boolean;
 }
 
-export interface DeleteResponse {
-  deleted: boolean;
-}
-
-export interface ClearResponse {
-  deleted_count: number;
-}
-
-export async function getHealth(): Promise<{ status: string; uptime_seconds: number; db_connected: boolean; version: string }> {
-  const res = await fetch(`${BASE}/api/health`);
-  if (!res.ok) throw new Error(`Health check failed: ${res.status}`);
-  return res.json();
-}
-
-export async function getDomains(): Promise<string[]> {
-  const res = await fetch(`${BASE}/api/domains`);
-  if (!res.ok) throw new Error(`Failed to fetch domains: ${res.status}`);
-  return res.json();
-}
-
 export async function generateAddress(domain?: string): Promise<Address> {
   const res = await fetch(`${BASE}/api/address/generate`, {
     method: "POST",
@@ -55,26 +38,19 @@ export async function listEmails(address: string): Promise<Email[]> {
   return res.json();
 }
 
-export async function getEmail(address: string, id: string): Promise<Email> {
-  const res = await fetch(`${BASE}/api/emails/${encodeURIComponent(address)}/${encodeURIComponent(id)}`);
-  if (!res.ok) throw new Error(`Failed to get email: ${res.status}`);
-  return res.json();
-}
-
-export async function deleteEmail(address: string, id: string): Promise<DeleteResponse> {
-  const res = await fetch(`${BASE}/api/emails/${encodeURIComponent(address)}/${encodeURIComponent(id)}`, {
-    method: "DELETE",
-  });
+export async function deleteEmail(address: string, id: string): Promise<void> {
+  const res = await fetch(
+    `${BASE}/api/emails/${encodeURIComponent(address)}/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
   if (!res.ok) throw new Error(`Failed to delete email: ${res.status}`);
-  return res.json();
 }
 
-export async function clearEmails(address: string): Promise<ClearResponse> {
+export async function clearEmails(address: string): Promise<void> {
   const res = await fetch(`${BASE}/api/emails/${encodeURIComponent(address)}`, {
     method: "DELETE",
   });
   if (!res.ok) throw new Error(`Failed to clear emails: ${res.status}`);
-  return res.json();
 }
 
 export function createEmailEventSource(address: string): EventSource {
