@@ -7,12 +7,13 @@ import { useInbox } from "@/hooks/useInbox";
 import InboxList from "@/components/InboxList";
 import EmailViewer from "@/components/EmailViewer";
 
-const STORAGE_KEY = "test@test.com";
+const STORAGE_KEY = "magic-mail-address";
 
 export default function Page() {
   const [currentAddress, setCurrentAddress] = useState<api.Address | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
-  const [IsCopied, setIsCopied] = useState(false);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
 
   const {
     emails,
@@ -45,7 +46,11 @@ export default function Page() {
         setCurrentAddress(addr);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(addr));
       })
-      .catch(console.error)
+      .catch((err) => {
+        setPageError(
+          err instanceof Error ? err.message : "Failed to generate address",
+        );
+      })
       .finally(() => setPageLoading(false));
   }, []);
 
@@ -71,8 +76,11 @@ export default function Page() {
       setCurrentAddress(addr);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(addr));
       setIsCopied(false);
+      setPageError(null);
     } catch (err) {
-      console.error("Failed to generate address:", err);
+      setPageError(
+        err instanceof Error ? err.message : "Failed to generate address",
+      );
     }
   }, []);
 
@@ -108,10 +116,19 @@ export default function Page() {
                 {currentAddress?.address || "Generating..."}
               </div>
               <div
+                role="button"
+                tabIndex={0}
+                aria-label={isCopied ? "Address copied" : "Copy address"}
                 className="bg-white/90 select-none rounded-full p-2.5 cursor-pointer"
                 onClick={handleCopy}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleCopy();
+                  }
+                }}
               >
-                {IsCopied ? (
+                {isCopied ? (
                   <Image
                     src="/icons/copy-suc.svg"
                     alt="copied"
@@ -131,8 +148,17 @@ export default function Page() {
               </div>
             </div>
             <div
-              className="rounded-full cursor-pointer select-none items-center pl-4 pr-1.5 py-1.5 flex gap-2 bg-black/90 w-fit"
+              role="button"
+              tabIndex={0}
+              aria-label="Regenerate temporary address"
+              className="rounded-full cursor-pointer select-none items-center pl-4 pr-1.5 py-1.5 flex gap-2 bg-black/90 w-fit focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
               onClick={handleRegenerate}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleRegenerate();
+                }
+              }}
             >
               <div className="text-base text-white">regenerate</div>
               <Image
@@ -148,6 +174,12 @@ export default function Page() {
           {error && (
             <div className="mt-4 px-4 py-2 bg-red-500/20 border border-red-500/40 rounded-lg text-sm text-white">
               {error}
+            </div>
+          )}
+
+          {pageError && !error && (
+            <div className="mt-4 px-4 py-2 bg-red-500/20 border border-red-500/40 rounded-lg text-sm text-white">
+              {pageError}
             </div>
           )}
 

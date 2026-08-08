@@ -52,8 +52,17 @@ export default function InboxList({
         {emails.map((email) => (
           <div
             key={email.id}
+            role="button"
+            tabIndex={0}
+            aria-label={`Email: ${email.subject || "(No subject)"} from ${email.from_addr}`}
             onClick={() => onSelect(email)}
-            className={`px-2 py-3 cursor-pointer transition-colors ${
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect(email);
+              }
+            }}
+            className={`px-2 py-3 cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30 ${
               selectedId === email.id
                 ? "bg-white/10 border-l-2 border-l-white"
                 : "hover:bg-white/5 border-l-2 border-l-transparent"
