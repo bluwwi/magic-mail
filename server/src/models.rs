@@ -23,6 +23,18 @@ pub struct Email {
     pub is_read: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, PartialEq)]
+pub struct Attachment {
+    pub id: String,
+    pub email_id: String,
+    pub cid: Option<String>,
+    pub content_type: String,
+    pub filename: Option<String>,
+    #[serde(skip)]
+    pub data: Vec<u8>,
+    pub inline: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct EmailEvent {
     pub to_address: String,
@@ -63,6 +75,26 @@ impl Address {
             domain,
             created_at: now,
             expires_at: now + (ttl_minutes * 60),
+        }
+    }
+}
+
+impl Attachment {
+    pub fn new(
+        cid: Option<String>,
+        content_type: String,
+        filename: Option<String>,
+        data: Vec<u8>,
+        inline: bool,
+    ) -> Self {
+        Self {
+            id: uuid::Uuid::new_v4().to_string(),
+            email_id: String::new(),
+            cid,
+            content_type,
+            filename,
+            data,
+            inline,
         }
     }
 }
