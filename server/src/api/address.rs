@@ -12,7 +12,6 @@ pub struct GenerateRequest {
 }
 
 const LOCAL_PART_LENGTH: usize = 10;
-const DEFAULT_TTL: i64 = 10;
 
 pub async fn generate_address(
     State(state): State<Arc<AppState>>,
@@ -36,7 +35,11 @@ pub async fn generate_address(
         .map(|_| rand::thread_rng().gen_range(b'a'..=b'z') as char)
         .collect();
 
-    let address = Address::new(format!("{}@{}", local, domain), domain, DEFAULT_TTL);
+    let address = Address::new(
+        format!("{}@{}", local, domain),
+        domain,
+        state.email_ttl_minutes,
+    );
 
     db::queries::insert_address(state.db.pool(), &address)
         .await

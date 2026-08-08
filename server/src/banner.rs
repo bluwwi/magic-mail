@@ -8,7 +8,7 @@ pub fn print_startup_banner(http_port: u16, smtp_port: u16, domains: &[String]) 
 "#;
 
     println!("{}", banner);
-    println!("  SMTP Server:     127.0.0.1:{}", smtp_port);
-    println!("  HTTP API:        127.0.0.1:{}", http_port);
+    println!("  SMTP Server:     0.0.0.0:{}", smtp_port);
+    println!("  HTTP API:        0.0.0.0:{}", http_port);
     println!("  Allowed Domains: {}\n", domains.join(", "));
 }

@@ -12,13 +12,34 @@ use db::Database;
 use notify::NotificationSender;
 use std::sync::Arc;
 
+fn env_or(default: &str, key: &str) -> String {
+    std::env::var(key).unwrap_or_else(|_| default.to_string())
+}
+
+fn parse_env_u16(key: &str, default: u16) -> u16 {
+    std::env::var(key)
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(default)
+}
+
+fn parse_env_i64(key: &str, default: i64) -> i64 {
+    std::env::var(key)
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(default)
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
-    let database_url = "sqlite:tempmail.db?mode=rwc";
-    let db = Arc::new(Database::new(database_url).await?);
+    let database_url = env_or("sqlite:tempmail.db?mode=rwc", "DATABASE_URL");
+    db::ensure_db_directory(&database_url)?;
+    let db = Arc::new(Database::new(&database_url).await?);
+
     let tx: NotificationSender = notify::setup_notification_channel();
+
     let allowed_domains: Vec<String> = std::env::var("ALLOWED_DOMAINS")
         .expect("ALLOWED_DOMAINS env var must be set (comma-separated, e.g. temp.realblue.lol,od3n.online,od3n.info)")
         .split(',')
@@ -30,7 +51,12 @@ async fn main() -> Result<()> {
         panic!("ALLOWED_DOMAINS env var is set but empty");
     }
 
-    banner::print_startup_banner(api::HTTP_PORT, smtp::SMTP_PORT, &allowed_domains);
+    let http_port = parse_env_u16("PORT", api::HTTP_PORT_DEFAULT);
+    let smtp_port = parse_env_u16("SMTP_PORT", smtp::SMTP_PORT_DEFAULT);
+    let smtp_hostname = env_or("tmpml.net", "SMTP_HOSTNAME");
+    let email_ttl_minutes = parse_env_i64("EMAIL_TTL_MINUTES", 10);
+
+    banner::print_startup_banner(http_port, smtp_port, &allowed_domains);
 
     let cleanup = tasks::cleanup::CleanupTask::new(db.clone());
     tokio::spawn(async move {
@@ -48,11 +74,11 @@ async fn main() -> Result<()> {
     let domains_http = allowed_domains;
 
     let mut smtp_fut = tokio::spawn(async move {
-        smtp::start_smtp_server(db_smtp, tx_smtp, domains_smtp).await
+        smtp::start_smtp_server(db_smtp, tx_smtp, domains_smtp, smtp_port, smtp_hostname).await
     });
 
     let mut http_fut = tokio::spawn(async move {
-        api::start_http_server(db_http, tx_http, domains_http).await
+        api::start_http_server(db_http, tx_http, domains_http, http_port, email_ttl_minutes).await
     });
 
     tokio::select! {

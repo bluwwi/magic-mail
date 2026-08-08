@@ -1,4 +1,5 @@
 pub mod address;
+pub mod attachments;
 pub mod emails;
 pub mod sse;
 
@@ -11,13 +12,14 @@ use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 
-pub const HTTP_PORT: u16 = 3001;
+pub const HTTP_PORT_DEFAULT: u16 = 3001;
 
 pub struct AppState {
     pub db: Arc<Database>,
     pub tx: NotificationSender,
     pub allowed_domains: Vec<String>,
     pub started_at: chrono::DateTime<chrono::Utc>,
+    pub email_ttl_minutes: i64,
 }
 
 pub async fn health_handler(
@@ -41,12 +43,14 @@ pub fn create_router(
     db: Arc<crate::db::Database>,
     tx: crate::notify::NotificationSender,
     allowed_domains: Vec<String>,
+    email_ttl_minutes: i64,
 ) -> Router {
     let state = Arc::new(AppState {
         db,
         tx,
         allowed_domains,
         started_at: chrono::Utc::now(),
+        email_ttl_minutes,
     });
 
     let cors = CorsLayer::new()
@@ -73,6 +77,10 @@ pub fn create_router(
             "/api/emails/:address/:id",
             axum::routing::get(emails::get_email).delete(emails::delete_email),
         )
+        .route(
+            "/api/attachments/:email_id/:cid",
+            axum::routing::get(attachments::get_attachment),
+        )
         .route("/sse/inbox/:address", axum::routing::get(sse::sse_handler))
         .layer(cors)
         .layer(TraceLayer::new_for_http())
@@ -83,9 +91,11 @@ pub async fn start_http_server(
     db: Arc<crate::db::Database>,
     tx: crate::notify::NotificationSender,
     allowed_domains: Vec<String>,
+    port: u16,
+    email_ttl_minutes: i64,
 ) -> anyhow::Result<()> {
-    let app = create_router(db, tx, allowed_domains);
-    let addr = format!("0.0.0.0:{}", HTTP_PORT);
+    let app = create_router(db, tx, allowed_domains, email_ttl_minutes);
+    let addr = format!("0.0.0.0:{}", port);
     tracing::info!("HTTP server listening on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(&addr).await?;
