@@ -29,6 +29,12 @@ impl Database {
             .await
             .context("Failed to run database migrations")?;
 
+        let attachments = include_str!("../../migrations/002_attachments.sql");
+        sqlx::query(attachments)
+            .execute(&pool)
+            .await
+            .context("Failed to run attachments migration")?;
+
         tracing::info!("Database migrations applied successfully");
 
         Ok(Self { pool })
@@ -46,7 +52,7 @@ impl Database {
         let result: (i64,) = sqlx::query_as("SELECT 1")
             .fetch_one(&self.pool)
             .await
-            .context("Database Heaath check failed")?;
+            .context("Database health check failed")?;
         Ok(result.0 == 1)
     }
 }
