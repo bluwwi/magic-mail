@@ -51,6 +51,7 @@ pub async fn delete_email(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     if deleted {
+        let _ = db::queries::delete_attachments_for_email(state.db.pool(), &id).await;
         Ok(Json(DeleteResponse { deleted: true }))
     } else {
         Err((StatusCode::NOT_FOUND, format!("Email '{}' not found", id)))
@@ -61,6 +62,9 @@ pub async fn clear_emails(
     State(state): State<Arc<AppState>>,
     Path(address): Path<String>,
 ) -> Result<Json<ClearResponse>, (StatusCode, String)> {
+    let _ = db::queries::delete_attachments_for_address(state.db.pool(), &address)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     let count = db::queries::delete_emails_for_address(state.db.pool(), &address)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
